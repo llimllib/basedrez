@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"html/template"
 	"io"
 	"net/http"
 	"os"
@@ -57,10 +58,7 @@ func main() {
 		log.Fatal().Err(err).Msg("Unable to open database")
 	}
 
-	server := BasedrezServer{
-		db:  db,
-		log: log,
-	}
+	server := NewBasedrezServer(db, log)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", server.Index)
@@ -81,18 +79,84 @@ func main() {
 }
 
 type BasedrezServer struct {
-	db  *sql.DB
-	log zerolog.Logger
+	db        *sql.DB
+	log       zerolog.Logger
+	templates *template.Template
 }
 
-func (b BasedrezServer) mustQuery(query string) sql.Result {
-	res, err := b.db.Exec(query)
+func NewBasedrezServer(db *sql.DB, log zerolog.Logger) *BasedrezServer {
+	templates := template.Must(template.ParseGlob("./static/*.html"))
+	server := BasedrezServer{
+		db:        db,
+		log:       log,
+		templates: templates,
+	}
+	return &server
+}
+
+func (b BasedrezServer) mustExec(sqlc string) sql.Result {
+	res, err := b.db.Exec(sqlc)
 	if err != nil {
-		b.log.Fatal().Err(err).Msg("Unable to complete query")
+		b.log.Fatal().Err(err).Str("sql", sqlc).Msg("Unable to exec")
 	}
 	return res
 }
 
+func (b BasedrezServer) mustQuery(query string) *sql.Rows {
+	res, err := b.db.Query(query)
+	if err != nil {
+		b.log.Fatal().Err(err).Str("sql", query).Msg("Unable to complete query")
+	}
+	return res
+}
+
+type Game struct {
+	ID                string
+	WhitePlayerID     string
+	WhitePlayerName   string
+	WhitePlayerRating string
+	BlackPlayerID     string
+	BlackPlayerName   string
+	BlackPlayerRating string
+	Winner            string
+}
+
+func (b BasedrezServer) RecentGames() []Game {
+	rows := b.mustQuery(`
+SELECT
+	id,
+	whitePlayerId, whitePlayerName, whitePlayerRating,
+	blackPlayerId, blackPlayerName, blackPlayerRating,
+	winner
+FROM games
+LIMIT 10`)
+
+	var games []Game
+	for rows.Next() {
+		game := Game{}
+		err := rows.Scan(
+			&game.ID,
+			&game.WhitePlayerID, &game.WhitePlayerName, &game.WhitePlayerRating,
+			&game.BlackPlayerID, &game.BlackPlayerName, &game.BlackPlayerRating,
+			&game.Winner)
+		if err != nil {
+			b.log.Fatal().Err(err).Msg("Unable to get recent games")
+		}
+		games = append(games, game)
+	}
+
+	return games
+}
+
 func (b BasedrezServer) Index(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "static/index.html")
+	idx := b.templates.Lookup("index.html")
+	if idx == nil {
+		b.log.Fatal().Msg("Failed looking up template")
+	}
+
+	games := b.RecentGames()
+	b.log.Debug().Int("games", len(games)).Msg("# of games")
+	if err := idx.Execute(w, struct{ Games []Game }{Games: games}); err != nil {
+		b.log.Fatal().Err(err).Msg("Failed executing template")
+	}
 }
