@@ -1,8 +1,8 @@
 import json
 import sqlite3
-from typing import Any, List
+from typing import Any
 
-DB = sqlite3.connect("chess.db")
+DB = sqlite3.connect("../chess.db")
 
 
 def query(sql: str, *params: Any | None):
