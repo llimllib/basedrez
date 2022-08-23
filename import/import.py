@@ -44,26 +44,26 @@ query(
     """
 CREATE TABLE IF NOT EXISTS games(
     id text primary key,
-    whitePlayerId text,
-    whitePlayerName text,
-    whitePlayerRating numeric,
-    whitePlayerRatingDiff numeric,
-    blackPlayerId text,
-    blackPlayerName text,
-    blackPlayerRating numeric,
-    blackPlayerRatingDiff numeric,
+    white_player_id text,
+    white_player_name text,
+    white_player_rating numeric,
+    white_player_rating_diff numeric,
+    black_player_id text,
+    black_player_name text,
+    black_player_rating numeric,
+    black_player_rating_diff numeric,
     winner text,
     moves text,
-    clockInitial numeric,
-    clockIncrement numeric,
-    clockTotal numeric,
+    clock_initial numeric,
+    clock_increment numeric,
+    clock_total numeric,
     pgn text,
     rated boolean,
     variant text,
     speed text,
     perf text,
-    createdAt numeric,
-    lastMoveAt numeric,
+    created_at numeric,
+    last_move_at numeric,
     status text
 )"""
 )
@@ -106,3 +106,5 @@ for game in games:
     except:
         print("failed to import", game)
         raise
+
+query("CREATE INDEX idx_id ON games(id)")
