@@ -108,3 +108,4 @@ for game in games:
         raise
 
 query("CREATE INDEX idx_id ON games(id)")
+query("PRAGMA journal_mode = wal")
