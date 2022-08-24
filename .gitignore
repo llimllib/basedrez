@@ -2,3 +2,4 @@
 chess.db
 *.json
 NOTES
+.DS_STORE
