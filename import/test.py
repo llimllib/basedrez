@@ -64,6 +64,8 @@ else:
             # probably a bug. https://github.com/ZackClements/berserk/pull/24
             # so I added it and installed my own version of the library
             literate=True,
+            # sort the games from oldest to newest
+            sort="dateAsc",
         )
     )
     json.dump(games, outfile, default=json_serial)
@@ -77,20 +79,28 @@ else:
 # let's download 60 games per second and stuff them into a file - later we can
 # process them intelligently into a database
 while 1:
-    # right now this breaks if the file already exists, because json
-    # deserialization doesn't desrialize the timestamps
-    until = millis_since_epoch(games[-1]["createdAt"])
+    try:
+        since = millis_since_epoch(games[-1]["createdAt"])
+    except AttributeError:
+        # berserk returns times in datetime, but we save them as integers,
+        # which is the input format that it's expecting. If createdAt isn't a
+        # datetime, it might be a time we lodaed from the filesystem
+        since = games[-1]["createdAt"]
     newgames = list(
         client.games.export_by_player(
             "llimllib",
             max=60,
-            until=until,
+            # we want to increase the "since" time by one since liches does >=,
+            # and we don't want to re-download a game
+            since=since + 1,
             moves=True,
             pgn_in_json=True,
             tags=True,
             clocks=True,
             evals=True,
             literate=True,
+            # sort the games from oldest to newest
+            sort="dateAsc",
         )
     )
 
@@ -107,6 +117,8 @@ while 1:
         print(
             "duplicates found, quitting", len(set(g["id"] for g in games)), len(games)
         )
+        print(games[-1]["id"])
+        sys.exit(64)
 
     time.sleep(1)
     sys.stdout.write(".")
